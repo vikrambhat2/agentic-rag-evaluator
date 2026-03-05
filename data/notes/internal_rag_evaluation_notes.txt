@@ -1,0 +1,69 @@
+INTERNAL RAG EVALUATION NOTES
+Team: AI Platform Engineering
+Last Updated: 2024-Q4
+
+=== EVALUATION METHODOLOGY ===
+
+We ran a 3-week evaluation sprint on our internal RAG system covering 200 hand-annotated query-answer pairs. Key findings below.
+
+Faithfulness scores:
+- With llama3.2 as judge: avg 0.73 across our test set
+- With mistral as judge: avg 0.68 (lower consistency observed)
+- Human agreement with llama3.2 judge: 81% on binary faithful/not-faithful classification
+
+We recommend llama3.2 at temperature=0 as our internal judge model going forward. The consistency advantage over larger models is offset by the lower cost and speed.
+
+=== RETRIEVAL QUALITY OBSERVATIONS ===
+
+Top-k sweep (k=1,3,5,10):
+- k=3: best precision, acceptable recall for our query distribution
+- k=5: recall improves by 12%, but faithfulness drops 8% (more noisy context)
+- k=10: diminishing returns, latency increases unacceptably
+
+Conclusion: k=3 is our default, k=5 for multi-hop queries.
+
+Chunk size sweep (128, 256, 512, 1024 tokens):
+- 512 tokens with 50-token overlap performed best on our internal NDCG benchmark
+- 256 tokens had higher precision but poor recall on long-answer queries
+- 1024 tokens degraded faithfulness by 15% (too much irrelevant context)
+
+=== MEMORY SYSTEM EXPERIMENTS ===
+
+We implemented a query memory system that caches successful retrieval plans. Results after 2 weeks of dog-fooding:
+
+Memory hit rate: 34% of queries matched a cached plan (>60% word overlap)
+Average retrieval improvement on memory hits: +0.09 relevance score vs fresh plans
+Memory false positive rate: 8% (cached plan used for semantically different query)
+
+Recommendation: Memory threshold at 0.75 avg relevance for save; 60% word overlap for match. Cap at 50 entries with LRU eviction.
+
+=== AGENTIC VS NAIVE RAG COMPARISON ===
+
+We compared our agentic multi-source RAG against a simple single-source (vector DB only) baseline on 50 multi-source queries:
+
+Agentic RAG:
+- Source coverage: 94% (got info from all expected sources)
+- Overall answer quality: 0.81 avg score
+- Avg latency: 4.2s
+
+Naive RAG (vector DB only):
+- Source coverage: 61% (missed filesystem and API sources entirely)
+- Overall answer quality: 0.64 avg score
+- Avg latency: 1.1s
+
+The quality improvement of agentic RAG justifies the latency cost for our use case (internal knowledge assistant).
+
+=== KNOWN ISSUES ===
+
+1. Planner occasionally selects "api" source for historical queries that should only use "vector_db". Adding few-shot examples to planner prompt reduced this by 40%.
+
+2. Evaluator convergence: 7% of queries hit max_iterations (3) without meeting confidence threshold. These tend to be highly ambiguous queries.
+
+3. Memory pollution: Without the 0.75 relevance threshold, old low-quality plans got cached and degraded subsequent queries. The threshold is critical.
+
+=== NEXT STEPS ===
+
+- Experiment with query decomposition for multi-hop questions
+- Add cross-encoder reranker after initial vector DB retrieval
+- Implement streaming output for latency-sensitive use cases
+- Build feedback loop: collect user thumbs up/down to filter memory entries

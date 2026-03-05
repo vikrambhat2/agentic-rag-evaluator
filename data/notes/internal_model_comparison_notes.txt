@@ -1,0 +1,92 @@
+INTERNAL MODEL COMPARISON NOTES
+Team: AI Research / LLM Selection
+Last Updated: 2024-Q4
+
+=== LLM SELECTION FOR LOCAL RAG ===
+
+We evaluated 6 open-source LLMs for use as the generator and judge in our fully local RAG system. All models run via Ollama on M2 Mac (32GB RAM) and NVIDIA A100 (production server).
+
+Criteria:
+1. Answer quality on RAG tasks (1-5 scale, human eval)
+2. Instruction following (JSON output reliability)
+3. Tokens/second throughput on local hardware
+4. Context window size
+5. License compatibility
+
+Models Evaluated:
+- llama3.2:3b (Meta, Apache 2.0)
+- llama3.2:7b (Meta, Apache 2.0)  [NOTE: "llama3.2" in Ollama = 3B model]
+- mistral:7b (Mistral AI, Apache 2.0)
+- phi3:mini (Microsoft, MIT)
+- gemma2:2b (Google, Gemma ToS)
+- qwen2.5:7b (Alibaba, Apache 2.0)
+
+=== RESULTS ===
+
+Model          | Answer Quality | JSON Follow | Tok/s (M2) | Context | License
+llama3.2       |     3.9/5      |    92%      |    58      |  128K   | Apache 2.0
+mistral:7b     |     3.7/5      |    89%      |    41      |   32K   | Apache 2.0
+phi3:mini      |     3.5/5      |    94%      |    78      |  128K   | MIT
+gemma2:2b      |     3.2/5      |    81%      |    65      |   8K    | Gemma ToS
+qwen2.5:7b     |     4.1/5      |    91%      |    39      |  128K   | Apache 2.0
+llama3.2+nomic |     N/A        |    N/A      |    N/A     |   N/A   | Combined
+
+Winner for Generator: llama3.2 — best balance of quality, speed, license, and Ollama integration
+Winner for Judge: llama3.2 at temperature=0 — consistent, fast, good calibration
+
+=== JUDGE CALIBRATION RESULTS ===
+
+We compared LLM judge scores against human expert scores on 100 (query, context, answer) triples.
+
+Judge model     | Pearson r vs human | Mean Abs Error | False high rate
+llama3.2 (t=0) |      0.79          |    0.09        |    12%
+mistral (t=0)  |      0.74          |    0.12        |    18%
+phi3 (t=0)     |      0.71          |    0.14        |    21%
+
+llama3.2 at temperature=0 is our recommended judge. The 0.79 Pearson correlation with human scores is acceptable for automated evaluation. We note that judges tend to be overconfident (false high rate) — keep this in mind when interpreting scores > 0.9.
+
+=== EMBEDDING MODEL COMPARISON ===
+
+Embedding models tested for retrieval quality (Precision@3 on 100 queries):
+
+Model               | P@3  | Ingestion speed | Dim | Ollama?
+nomic-embed-text    | 0.74 |  840 chunks/min | 768 | Yes
+all-MiniLM-L6-v2   | 0.68 | 2100 chunks/min | 384 | No (HF only)
+BGE-base-en-v1.5   | 0.76 |  720 chunks/min | 768 | Yes (bge-m3)
+E5-small-v2        | 0.65 | 1800 chunks/min | 384 | No
+
+Decision: nomic-embed-text for all environments. Best retrieval quality among Ollama-native models with acceptable ingestion speed.
+
+=== TEMPERATURE SENSITIVITY ===
+
+We ran the generator at different temperatures on 50 queries and measured faithfulness:
+
+Temperature | Faithfulness | Diversity | Consistency (same query x3)
+0.0         |    0.82      |   Low     |    High (0.95 similarity)
+0.3         |    0.80      |   Med     |    Med  (0.87 similarity)
+0.7         |    0.74      |   High    |    Low  (0.71 similarity)
+1.0         |    0.65      |   Very High |  Very Low (0.58 similarity)
+
+Findings:
+- For the judge: always temperature=0 (reproducibility is paramount)
+- For the generator: temperature=0.1 (slightly more natural responses than 0.0, still faithful)
+
+=== CONTEXT WINDOW UTILIZATION ===
+
+Tested how many chunks can be passed to the generator before quality degrades:
+
+Chunks passed | Avg faithfulness | Avg answer length
+1             |    0.91          |    82 tokens
+3             |    0.87          |   134 tokens
+5             |    0.84          |   189 tokens
+10            |    0.78          |   247 tokens
+
+Recommendation: Pass 3-5 most relevant chunks. More chunks add noise without improving answer quality for our query distribution.
+
+=== OLLAMA DEPLOYMENT NOTES ===
+
+1. Model loading: First inference has ~2s overhead (model load). Subsequent calls are fast.
+2. Concurrency: Ollama handles one request at a time by default. For parallel evaluation, set OLLAMA_NUM_PARALLEL=4.
+3. Memory: llama3.2 (3B) uses ~3.8GB RAM. nomic-embed-text uses ~270MB. Both fit comfortably on 8GB RAM.
+4. GPU offload: Ollama auto-detects CUDA/Metal and offloads layers to GPU automatically.
+5. Timeouts: Set generous timeouts (120s) for slow queries or cold starts.

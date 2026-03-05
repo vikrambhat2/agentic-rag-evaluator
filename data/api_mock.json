@@ -1,0 +1,166 @@
+{
+  "endpoint": "latest_ai_developments",
+  "version": "1.0",
+  "generated_at": "2024-12-01",
+  "latest_models": [
+    {
+      "name": "Llama 3.2",
+      "provider": "Meta",
+      "release_date": "2024-09",
+      "parameters": "1B, 3B (text); 11B, 90B (multimodal)",
+      "context_window": "128K tokens",
+      "license": "Apache 2.0",
+      "highlights": "First Llama with vision capability; 128K context; strong instruction following; available via Ollama",
+      "benchmark_mmlu": 69.4,
+      "benchmark_humaneval": 72.6
+    },
+    {
+      "name": "Mistral Small 3",
+      "provider": "Mistral AI",
+      "release_date": "2024-11",
+      "parameters": "22B",
+      "context_window": "32K tokens",
+      "license": "Apache 2.0",
+      "highlights": "New state-of-the-art at 22B scale; outperforms models 2x its size on reasoning tasks",
+      "benchmark_mmlu": 81.2,
+      "benchmark_humaneval": 79.4
+    },
+    {
+      "name": "Qwen 2.5",
+      "provider": "Alibaba",
+      "release_date": "2024-09",
+      "parameters": "0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B",
+      "context_window": "128K tokens",
+      "license": "Apache 2.0",
+      "highlights": "Entire model family open sourced; 72B rivals GPT-4o on several benchmarks; strong coding performance",
+      "benchmark_mmlu": 85.0,
+      "benchmark_humaneval": 86.7
+    },
+    {
+      "name": "Gemma 2",
+      "provider": "Google DeepMind",
+      "release_date": "2024-06",
+      "parameters": "2B, 9B, 27B",
+      "context_window": "8K tokens",
+      "license": "Gemma Terms of Use",
+      "highlights": "Knowledge distillation from Gemini; 9B outperforms Llama 3 8B on most benchmarks; efficient inference",
+      "benchmark_mmlu": 71.3,
+      "benchmark_humaneval": 65.2
+    },
+    {
+      "name": "Phi-3.5",
+      "provider": "Microsoft",
+      "release_date": "2024-08",
+      "parameters": "3.8B (mini), 7B (small), 42B (MoE)",
+      "context_window": "128K tokens",
+      "license": "MIT",
+      "highlights": "Small but mighty; phi-3.5-mini matches 7B models; MoE variant with 42B params but 7B active; strong reasoning",
+      "benchmark_mmlu": 69.0,
+      "benchmark_humaneval": 70.4
+    },
+    {
+      "name": "DeepSeek-R1",
+      "provider": "DeepSeek",
+      "release_date": "2025-01",
+      "parameters": "7B, 14B, 32B, 70B, 671B",
+      "context_window": "128K tokens",
+      "license": "MIT",
+      "highlights": "First fully open reasoning model; uses extended chain-of-thought; 671B rivals o1 on math/coding",
+      "benchmark_mmlu": 90.8,
+      "benchmark_humaneval": 92.3
+    }
+  ],
+  "recent_benchmarks": [
+    {
+      "name": "MMLU Pro",
+      "description": "Extended MMLU with harder reasoning questions across 14 subjects",
+      "top_model": "DeepSeek-R1-671B",
+      "top_score": 84.0,
+      "notable_open_source_score": "Qwen2.5-72B: 71.1",
+      "date": "2024-Q4"
+    },
+    {
+      "name": "HumanEval+",
+      "description": "Enhanced code generation benchmark with edge cases",
+      "top_model": "DeepSeek-R1-671B",
+      "top_score": 91.6,
+      "notable_open_source_score": "Qwen2.5-Coder-32B: 87.2",
+      "date": "2024-Q4"
+    },
+    {
+      "name": "MTEB Retrieval",
+      "description": "Massive Text Embedding Benchmark - retrieval subset",
+      "top_model": "voyage-3",
+      "top_score": 60.1,
+      "notable_open_source_score": "BGE-M3: 54.9",
+      "date": "2024-Q3"
+    },
+    {
+      "name": "RAGBench",
+      "description": "End-to-end RAG pipeline evaluation across 10 domains",
+      "top_model": "GPT-4o with RAG",
+      "top_score": 0.89,
+      "notable_open_source_score": "Llama3.1-70B + nomic: 0.78",
+      "date": "2024-Q4"
+    },
+    {
+      "name": "HELMET (Long Context)",
+      "description": "Holistic Evaluation of Long-context Language Models",
+      "top_model": "Claude 3.5 Sonnet",
+      "top_score": 0.82,
+      "notable_open_source_score": "Qwen2.5-72B: 0.74",
+      "date": "2024-Q4"
+    }
+  ],
+  "trending_techniques": [
+    {
+      "name": "Reasoning-Enhanced RAG",
+      "description": "Combine chain-of-thought reasoning with retrieval. The model reasons about what to retrieve before and after fetching documents. DeepSeek-R1 style extended thinking applied to retrieval decisions.",
+      "status": "Emerging",
+      "papers": ["RAG-Star (2024)", "Reasoning-RAG (2024)"],
+      "adoption": "Early experimental"
+    },
+    {
+      "name": "Speculative RAG",
+      "description": "Use a small model to generate multiple draft answers with different retrieved contexts; a larger model selects the best. Reduces latency while maintaining quality of larger models.",
+      "status": "Research",
+      "papers": ["Speculative RAG (Google Research, 2024)"],
+      "adoption": "Research only"
+    },
+    {
+      "name": "GraphRAG",
+      "description": "Build a knowledge graph over the document corpus. Retrieve subgraphs relevant to the query instead of flat chunks. Microsoft's GraphRAG enables global summarization queries across large corpora.",
+      "status": "Production-ready",
+      "papers": ["GraphRAG (Microsoft, 2024)"],
+      "adoption": "Growing — Microsoft open-sourced the framework"
+    },
+    {
+      "name": "Adaptive Retrieval",
+      "description": "Dynamically decide whether to retrieve based on query uncertainty. Skip retrieval for queries the model can answer from parametric memory. Reduces latency by 30-40% on trivial queries.",
+      "status": "Maturing",
+      "papers": ["Self-RAG (2023)", "FLARE (2023)", "Adaptive-RAG (2024)"],
+      "adoption": "Increasing in production systems"
+    },
+    {
+      "name": "Multimodal RAG",
+      "description": "Extend RAG to include images, tables, charts, and diagrams. Retrieve and reason over mixed-modality content. Requires multimodal embeddings and vision-language models.",
+      "status": "Emerging",
+      "papers": ["MM-RAG (2024)", "VisRAG (2024)"],
+      "adoption": "Early production for document-heavy use cases"
+    },
+    {
+      "name": "Agentic RAG",
+      "description": "Use an LLM agent to orchestrate retrieval dynamically. The agent plans which sources to query, evaluates results, refines queries, and combines multi-source information. LangGraph and LlamaIndex Workflows are primary implementation frameworks.",
+      "status": "Production-ready",
+      "papers": ["REACT (2022)", "Agentic RAG Survey (2024)"],
+      "adoption": "Rapidly growing — becoming the default for complex RAG systems"
+    },
+    {
+      "name": "ColPali (Late Interaction for Documents)",
+      "description": "Document understanding approach that embeds page images directly using vision models. Enables retrieval over PDF pages without OCR or text extraction. Significantly better on tables, charts, and complex layouts.",
+      "status": "Emerging production",
+      "papers": ["ColPali (2024)"],
+      "adoption": "Early but high interest"
+    }
+  ]
+}

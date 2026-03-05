@@ -1,0 +1,91 @@
+INTERNAL CHUNKING EXPERIMENTS
+Team: Data Engineering / RAG Infrastructure
+Last Updated: 2024-Q4
+
+=== EXPERIMENT LOG ===
+
+Experiment 1: Fixed-size vs Semantic Chunking
+----------------------------------------------
+Date: 2024-10-05
+Dataset: 50 internal markdown documents (~2M tokens total)
+Metric: Precision@3 on 100 annotated queries
+
+Results:
+- Fixed-size (512 tokens, 50 overlap): Precision@3 = 0.71
+- Semantic chunking (cosine threshold 0.85): Precision@3 = 0.76
+- Document-aware (heading-based): Precision@3 = 0.79
+
+Winner: Document-aware chunking on our structured markdown corpus.
+
+Note: Semantic chunking was 18x slower at ingestion time due to per-sentence embedding. For our 50-document KB this is acceptable, but would not scale to 10K+ docs without optimization.
+
+Experiment 2: Chunk Size Ablation
+-----------------------------------
+Date: 2024-10-14
+Model: nomic-embed-text
+Dataset: Same 50 docs
+Queries: 100 annotated
+
+Chunk size | Precision@3 | Recall@5 | Avg chunk count
+128 tokens |    0.61     |   0.55   |    4,210
+256 tokens |    0.68     |   0.62   |    2,180
+512 tokens |    0.72     |   0.74   |    1,120
+768 tokens |    0.71     |   0.79   |      760
+1024 tokens|    0.66     |   0.81   |      580
+
+Observation: 512 tokens maximizes the precision-recall tradeoff for our corpus. 768 marginally better recall but worse precision due to chunk boundary noise.
+
+Experiment 3: Overlap Impact
+------------------------------
+Date: 2024-10-22
+Fixed chunk_size=512
+
+Overlap | Precision@3 | Notes
+0       |    0.68     | Lost cross-boundary context
+25      |    0.71     | Minor improvement
+50      |    0.74     | Best balance
+100     |    0.73     | Diminishing returns, 2x more chunks
+200     |    0.70     | Too many duplicate chunks hurt ranking
+
+Conclusion: 50-token overlap is optimal for 512-token chunks.
+
+Experiment 4: Metadata Enrichment
+------------------------------------
+Date: 2024-11-03
+Tested adding source_file, section_heading, and chunk_index as metadata for filter-based retrieval.
+
+Results with metadata filtering (by source_file) vs. no filter:
+- Precision@3: 0.81 vs 0.72 (+12.5%)
+- When filter was wrong (wrong source expected): Recall dropped 31%
+
+Conclusion: Metadata filtering is powerful but requires good source routing. Our agentic planner needs to know which source to query to leverage filtering effectively.
+
+=== CHUNKING PIPELINE CONFIGURATION (CURRENT PRODUCTION) ===
+
+Loader: markdown files → MarkdownHeaderTextSplitter
+Fallback: RecursiveCharacterTextSplitter
+Chunk size: 500 tokens
+Chunk overlap: 50 tokens
+Embedding model: nomic-embed-text (via Ollama)
+Vector store: ChromaDB persistent (collection: agentic_rag_docs)
+Metadata stored per chunk: source, doc_name, chunk_index
+
+=== OPEN QUESTIONS ===
+
+1. Should we re-chunk when we upgrade the embedding model?
+   - Current consensus: yes, embeddings are model-specific. Plan monthly re-indexing.
+
+2. Proposition-level chunking evaluation?
+   - Promising results in literature. Planned for Q1 2025 sprint.
+   - Main concern: ingestion cost with llama3.2 as proposition extractor
+
+3. Code chunks in documentation?
+   - Current approach: code blocks treated same as text. This is suboptimal.
+   - Proposed: extract code blocks, store with language tag metadata, embed separately.
+
+=== BENCHMARKS vs INDUSTRY ===
+
+Our current system (512/50 config) compared to BEIR benchmark scores for similar open-source setups:
+- We're approximately 5-8% below top MTEB performers (BGE-M3, E5-mistral)
+- Switching to BGE-M3 for embeddings projected +6% recall, +4% precision
+- Decision deferred: nomic-embed-text has better Ollama support and simpler deployment
