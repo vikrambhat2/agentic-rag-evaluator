@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any
+from typing import Any, Dict
 
 from langchain_ollama import ChatOllama
 
@@ -32,13 +32,11 @@ def _parse_plan(raw: str, query: str) -> RetrievalPlan:
     """Parse LLM JSON output into a RetrievalPlan. Falls back to default on failure."""
     try:
         cleaned = _strip_markdown(raw)
-        # Extract first JSON object found
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if not match:
             raise ValueError("No JSON object found")
         data = json.loads(match.group())
 
-        # Validate and clamp numeric fields
         sources = data.get("sources", ["vector_db"])
         valid_sources = [s for s in sources if s in ("vector_db", "filesystem", "api")]
         if not valid_sources:
@@ -64,9 +62,9 @@ def _parse_plan(raw: str, query: str) -> RetrievalPlan:
         )
     except Exception as e:
         print(f"[Planner] JSON parse error: {e}. Using default plan.")
-        default = DEFAULT_PLAN.model_copy()
-        default.query_variants = [query]
-        return default
+        plan = DEFAULT_PLAN.model_copy()
+        plan.query_variants = [query]
+        return plan
 
 
 class PlannerNode:
@@ -75,17 +73,17 @@ class PlannerNode:
     def __init__(self, model: str = "llama3.2"):
         self.llm = ChatOllama(model=model, temperature=0.1)
 
-    def __call__(self, state: AgentState) -> AgentState:
+    def __call__(self, state: AgentState) -> Dict[str, Any]:
+        """Return partial dict update (not full state) for LangGraph reducer compatibility."""
         query = state["query"]
 
         # Reuse memory plan if available
         if state.get("memory_hit") and state.get("memory_plan"):
             plan = state["memory_plan"]
-            state["retrieval_plan"] = plan
-            state["trace"].append(
-                f"planner: reused memory plan for sources {plan.sources}"
-            )
-            return state
+            return {
+                "retrieval_plan": plan,
+                "trace": [f"planner: reused memory plan for sources {plan.sources}"],
+            }
 
         # Generate plan via LLM
         try:
@@ -101,8 +99,7 @@ class PlannerNode:
             plan = DEFAULT_PLAN.model_copy()
             plan.query_variants = [query]
 
-        state["retrieval_plan"] = plan
-        state["trace"].append(
-            f"planner: generated plan for sources {plan.sources}"
-        )
-        return state
+        return {
+            "retrieval_plan": plan,
+            "trace": [f"planner: generated plan for sources {plan.sources}"],
+        }

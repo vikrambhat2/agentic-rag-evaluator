@@ -42,15 +42,25 @@ class MemoryStore:
         except Exception as e:
             print(f"[MemoryStore] Error saving memory: {e}")
 
+    @staticmethod
+    def _tokenize(text: str):
+        """Lowercase, strip punctuation, return set of words longer than 2 chars."""
+        import re
+        tokens = re.findall(r"[a-zA-Z0-9]+", text.lower())
+        return set(t for t in tokens if len(t) > 2)
+
     def _word_overlap(self, q1: str, q2: str) -> float:
-        """Compute Jaccard word overlap between two queries."""
-        words1 = set(w.lower() for w in q1.split() if len(w) > 2)
-        words2 = set(w.lower() for w in q2.split() if len(w) > 2)
+        """
+        Compute symmetric word overlap: |intersection| / max(|A|, |B|).
+        Less strict than Jaccard; captures "most words in common" even when
+        one query is shorter. Punctuation-stripped before comparison.
+        """
+        words1 = self._tokenize(q1)
+        words2 = self._tokenize(q2)
         if not words1 or not words2:
             return 0.0
         intersection = words1 & words2
-        union = words1 | words2
-        return len(intersection) / len(union)
+        return len(intersection) / max(len(words1), len(words2))
 
     def check(self, query: str) -> Optional[RetrievalPlan]:
         """Return a cached RetrievalPlan if a similar query exists, else None."""

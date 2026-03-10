@@ -1,5 +1,6 @@
+import operator
 from pydantic import BaseModel
-from typing import List, Literal, Optional, Dict, Any
+from typing import Annotated, Dict, List, Literal, Optional
 from typing_extensions import TypedDict
 
 SourceType = Literal["vector_db", "filesystem", "api"]
@@ -20,15 +21,36 @@ class RetrievalResult(BaseModel):
     iteration: int
 
 
+def _merge_retrieval_results(
+    left: List[RetrievalResult], right: List[RetrievalResult]
+) -> List[RetrievalResult]:
+    """
+    Custom reducer for parallel fan-out correctness.
+
+    Uses (source, iteration) as a composite key:
+    - Retrievers add new (source, iteration) keys → append
+    - Evaluator updates existing keys with scored results → replace
+    """
+    if not right:
+        return left
+    result_map: Dict[tuple, RetrievalResult] = {
+        (r.source, r.iteration): r for r in left
+    }
+    for r in right:
+        result_map[(r.source, r.iteration)] = r
+    return list(result_map.values())
+
+
 class AgentState(TypedDict):
     query: str
     retrieval_plan: Optional[RetrievalPlan]
-    retrieval_results: List[RetrievalResult]
+    # Annotated with reducers so parallel retriever nodes can safely fan-out
+    retrieval_results: Annotated[List[RetrievalResult], _merge_retrieval_results]
     final_answer: str
     iteration: int
     memory_hit: bool
     memory_plan: Optional[RetrievalPlan]
-    trace: List[str]            # log of node decisions for evaluation
+    trace: Annotated[List[str], operator.add]  # append-only log
 
 
 class TestCase(BaseModel):
